@@ -1,9 +1,11 @@
 node_modules
 dist
+dist-test
 build
 coverage
 .yarn
 *.config.js
 *.config.ts
 .pnp.*
+src/test
 

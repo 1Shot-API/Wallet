@@ -16,13 +16,14 @@
   ],
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch",
+    "dev": "vite",
+    "dev:watch": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,json,md}\"",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist dist-test"
   },
   "keywords": [
     "1shotapi",
@@ -50,7 +51,9 @@
     "prettier": "^3.2.4",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vite": "^5.1.0",
+    "vite-tsconfig-paths": "^6.0.3"
   },
   "dependencies": {
     "neverthrow": "^8.2.0",
