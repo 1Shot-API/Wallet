@@ -16,6 +16,8 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:test": "vite build",
+    "build:test:gh-pages": "vite build",
     "dev": "vite",
     "dev:watch": "tsup --watch",
     "typecheck": "tsc --noEmit",
@@ -23,7 +25,7 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,json,md}\"",
-    "clean": "rimraf dist dist-test"
+    "clean": "rimraf dist dist-test docs"
   },
   "keywords": [
     "1shotapi",
