@@ -36,7 +36,17 @@ jobs:
       - name: Build test app for GitHub Pages
         run: yarn build:test:gh-pages
         env:
-          VITE_BASE_PATH: /wallet/
+          VITE_BASE_PATH: /Wallet/
+
+      - name: List build output
+        run: |
+          echo "Build output structure:"
+          ls -la docs/
+          echo "---"
+          if [ -f docs/index.html ]; then
+            echo "index.html first 50 lines:"
+            head -50 docs/index.html
+          fi
 
       - name: Create .nojekyll file
         run: touch docs/.nojekyll
