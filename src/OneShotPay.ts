@@ -68,11 +68,25 @@ export class OneShotPay {
     return ResultAsync.fromPromise(handshake, (e) => {
       return ProxyError.fromError(e as Error);
     }).map((child) => {
+      console.log("Handshake with 1ShotPay iframe complete.");
       this.child = child;
       // Store reference to container element for modal styling
       const container = document.getElementById(elementId);
       if (container) {
         this.containerElement = container;
+      }
+
+      // Add WebAuthn permissions to the iframe for passkey support
+      // These permissions are required for navigator.credentials.get() and create() to work in iframes
+      // For cross-origin iframes, we need to use the format: feature-name=*
+      if (child.frame && child.frame instanceof HTMLIFrameElement) {
+        child.frame.setAttribute(
+          "allow",
+          "publickey-credentials-get; publickey-credentials-create",
+        );
+      }
+      else {
+        console.warn("Could not add WebAuthn permissions to iframe. Frame is not an HTMLIFrameElement.");
       }
 
       // Setup the callback event listener
@@ -102,16 +116,6 @@ export class OneShotPay {
           callback(result);
         });
       });
-
-      // Add WebAuthn permissions to the iframe for passkey support
-      // These permissions are required for navigator.credentials.get() and create() to work in iframes
-      // For cross-origin iframes, we need to use the format: feature-name=*
-      if (child.frame && child.frame instanceof HTMLIFrameElement) {
-        child.frame.setAttribute(
-          "allow",
-          "publickey-credentials-get=*; publickey-credentials-create=*",
-        );
-      }
 
       //   // Fetch the height property in child.html and set it to the iFrames height
       //   child
