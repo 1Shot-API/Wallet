@@ -34,6 +34,8 @@ export class OneShotPay {
     (result: IRPCWrapperReturn) => void
   >();
   protected containerElement: HTMLElement | null = null;
+  protected displayRestore: (() => void) | null = null;
+  protected isVisible: boolean = false;
 
   public constructor() {}
 
@@ -126,6 +128,12 @@ export class OneShotPay {
         });
       });
 
+      // Setup listener for closeFrame event from the iframe
+      this.child.on("closeFrame", () => {
+        console.debug("Received closeFrame event from Wallet iframe");
+        this.hide();
+      });
+
       //   // Fetch the height property in child.html and set it to the iFrames height
       //   child
       //     .get("height")
@@ -202,6 +210,43 @@ export class OneShotPay {
     ).map((result) => {
       return result.accountAddress;
     });
+  }
+
+  /**
+   * Show the wallet iframe with full modal styling
+   * Uses the same styling as prepareIframeForDisplay()
+   */
+  public show(): void {
+    // If already shown, restore first to avoid stacking styles
+    if (this.displayRestore) {
+      this.displayRestore();
+      this.displayRestore = null;
+    }
+
+    // Prepare iframe for display and store the restore function
+    const { restore } = this.prepareIframeForDisplay();
+    this.displayRestore = restore;
+    this.isVisible = true;
+  }
+
+  /**
+   * Hide the wallet iframe
+   * Restores the iframe to its original state
+   */
+  public hide(): void {
+    if (this.displayRestore) {
+      this.displayRestore();
+      this.displayRestore = null;
+    }
+    this.isVisible = false;
+  }
+
+  /**
+   * Get the current visibility state of the wallet iframe
+   * @returns true if the iframe is currently visible, false otherwise
+   */
+  public getVisible(): boolean {
+    return this.isVisible;
   }
 
   protected rpcCall<TReturn, TParams>(
