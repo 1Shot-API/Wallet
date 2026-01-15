@@ -9,10 +9,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@1shotapi/wallet@workspace:."
   dependencies:
+    "@types/node": "npm:^25.0.8"
     "@types/postmate": "npm:^1"
     "@typescript-eslint/eslint-plugin": "npm:^6.19.0"
     "@typescript-eslint/parser": "npm:^6.19.0"
-    "@vitejs/plugin-basic-ssl": "npm:^2.1.3"
     eslint: "npm:^8.56.0"
     eslint-config-prettier: "npm:^9.1.0"
     neverthrow: "npm:^8.2.0"
@@ -756,6 +756,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/node@npm:^25.0.8":
+  version: 25.0.8
+  resolution: "@types/node@npm:25.0.8"
+  dependencies:
+    undici-types: "npm:~7.16.0"
+  checksum: 10c0/2282464cd928ab184b2310b79899c76bfaa88c8d14640dfab2f9218fdee7e2d916056492de683aa3a26050c8f3bbcade0305616a55277a7c344926c0393149e0
+  languageName: node
+  linkType: hard
+
 "@types/postmate@npm:^1":
   version: 1.5.4
   resolution: "@types/postmate@npm:1.5.4"
@@ -897,15 +906,6 @@ __metadata:
   version: 1.3.0
   resolution: "@ungap/structured-clone@npm:1.3.0"
   checksum: 10c0/0fc3097c2540ada1fc340ee56d58d96b5b536a2a0dab6e3ec17d4bfc8c4c86db345f61a375a8185f9da96f01c69678f836a2b57eeaa9e4b8eeafd26428e57b0a
-  languageName: node
-  linkType: hard
-
-"@vitejs/plugin-basic-ssl@npm:^2.1.3":
-  version: 2.1.3
-  resolution: "@vitejs/plugin-basic-ssl@npm:2.1.3"
-  peerDependencies:
-    vite: ^6.0.0 || ^7.0.0
-  checksum: 10c0/5e240df04f3b45b27effdb2f27848cb530a5972c0788712dbde0e1952e1dee79871b5df64640444f689116e9064a35a6d4c3e103bf33baa105efe3f8d9153d18
   languageName: node
   linkType: hard
 
@@ -3110,6 +3110,13 @@ __metadata:
   version: 1.6.2
   resolution: "ufo@npm:1.6.2"
   checksum: 10c0/cc2610b48803d4c73b375e4fd43b0db63e9413726637a4974be2a382a5c971696a64d28d0f107d6ff3b4570e0a031f436d79fe545c3c070d6525130a4abaf39c
+  languageName: node
+  linkType: hard
+
+"undici-types@npm:~7.16.0":
+  version: 7.16.0
+  resolution: "undici-types@npm:7.16.0"
+  checksum: 10c0/3033e2f2b5c9f1504bdc5934646cb54e37ecaca0f9249c983f7b1fc2e87c6d18399ebb05dc7fd5419e02b2e915f734d872a65da2e3eeed1813951c427d33cc9a
   languageName: node
   linkType: hard
 

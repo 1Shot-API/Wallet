@@ -40,7 +40,16 @@ export class ObjectUtils {
     return JSONString(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       stringify(obj, (_key: any, value: any) => {
-        if (value instanceof Map) {
+        if (value instanceof Error) {
+          return {
+            dataType: "Error",
+            value: {
+              name: value.name || "Error",
+              message: value.message || "Unknown error",
+              stack: value.stack || undefined,
+            },
+          };
+        } else if (value instanceof Map) {
           return {
             dataType: "Map",
             value: Array.from(value.entries()), // or with spread: value: [...value]
@@ -70,32 +79,75 @@ export class ObjectUtils {
   static deserialize<T = Record<string, unknown>>(
     json: JSONString,
   ): ResultAsync<T, ValidationError> {
-    try {
-      return okAsync(
-        JSON.parse(json, (_key, value) => {
-          if (typeof value === "object" && value !== null) {
-            if (value.dataType === "Map") {
-              return new Map(value.value);
-            } else if (value.dataType === "Set") {
-              return new Set(value.value);
-            } else if (value.dataType === "BigInt") {
-              return BigInt(value.value);
-            } else if (value.dataType === "bigint") {
-              return BigInt(value.value);
+    return ResultAsync.fromPromise(Promise.resolve(JSON.parse(json)), (e) =>
+      ValidationError.fromError(e as Error),
+    ).andThen((parsed) => {
+      // Handle special data types
+      const processValue = (value: unknown): unknown => {
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          "dataType" in value &&
+          "value" in value
+        ) {
+          const dataType = (value as { dataType: string }).dataType;
+          const dataValue = (value as { value: unknown }).value;
+
+          if (dataType === "Error") {
+            const errorData = dataValue as {
+              name?: string;
+              message?: string;
+              stack?: string;
+            };
+            const error = new Error(errorData.message || "Unknown error");
+            error.name = errorData.name || "Error";
+            if (errorData.stack) {
+              error.stack = errorData.stack;
             }
+            return error;
+          } else if (dataType === "Map") {
+            return new Map(dataValue as [unknown, unknown][]);
+          } else if (dataType === "Set") {
+            return new Set(dataValue as unknown[]);
+          } else if (dataType === "BigInt" || dataType === "bigint") {
+            return BigInt(dataValue as string);
           }
-          return value;
-        }),
-      );
-    } catch (e) {
-      return errAsync(ValidationError.fromError(e as Error));
-    }
+        }
+
+        if (Array.isArray(value)) {
+          return value.map(processValue);
+        } else if (value && typeof value === "object") {
+          const processed: Record<string, unknown> = {};
+          for (const [key, val] of Object.entries(value)) {
+            processed[key] = processValue(val);
+          }
+          return processed;
+        }
+
+        return value;
+      };
+
+      const processed = processValue(parsed);
+      return okAsync(processed as T);
+    });
   }
 
   static deserializeUnsafe<T = Record<string, unknown>>(json: JSONString): T {
     return JSON.parse(json, (_key, value) => {
       if (typeof value === "object" && value !== null) {
-        if (value.dataType === "Map") {
+        if (value.dataType === "Error") {
+          const errorData = value.value as {
+            name?: string;
+            message?: string;
+            stack?: string;
+          };
+          const error = new Error(errorData.message || "Unknown error");
+          error.name = errorData.name || "Error";
+          if (errorData.stack) {
+            error.stack = errorData.stack;
+          }
+          return error;
+        } else if (value.dataType === "Map") {
           return new Map(value.value);
         } else if (value.dataType === "Set") {
           return new Set(value.value);

@@ -1,10 +1,10 @@
-import { OneShotPay } from "OneShotPay";
-import { ELocale } from "types/enum";
 import {
   BigNumberString,
+  ELocale,
   EVMAccountAddress,
+  OneShotPay,
   UnixTimestamp,
-} from "types/primitives";
+} from "@1shotapi/wallet";
 
 const statusTextarea = document.getElementById(
   "statusTextarea",
@@ -14,8 +14,11 @@ const statusIndicator = document.getElementById("statusIndicator");
 const getSignatureBtn = document.getElementById(
   "getSignatureBtn",
 ) as HTMLButtonElement;
+const toggleFrameBtn = document.getElementById(
+  "toggleFrameBtn",
+) as HTMLButtonElement;
 
-if (!statusTextarea || !initIndicator || !statusIndicator || !getSignatureBtn) {
+if (!statusTextarea || !initIndicator || !statusIndicator || !getSignatureBtn || !toggleFrameBtn) {
   throw new Error("Required elements not found");
 }
 
@@ -72,8 +75,9 @@ oneShotPay
       `getStatus() successful: ${JSON.stringify(status, null, 2)}`,
     );
     
-    // Enable the button now that initialization is complete
+    // Enable the buttons now that initialization is complete
     getSignatureBtn.disabled = false;
+    toggleFrameBtn.disabled = false;
     addStatusMessage("Ready! Click the button to get ERC3009 signature.");
   })
   .mapErr((error) => {
@@ -108,3 +112,13 @@ getSignatureBtn.addEventListener("click", () => {
     });
 });
 
+// Toggle frame button handler
+toggleFrameBtn.addEventListener("click", () => {
+  if (oneShotPay.getVisible()) {
+    oneShotPay.hide();
+    addStatusMessage("Frame hidden");
+  } else {
+    oneShotPay.show();
+    addStatusMessage("Frame shown");
+  }
+});
