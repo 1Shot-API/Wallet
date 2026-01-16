@@ -1,6 +1,5 @@
 export * from "types/primitives/BigNumberString";
-export * from "types/primitives/AccountRecoveryId";
-export * from "types/primitives/AccountRecoveryPhrase";
+export * from "types/primitives/Base64String";
 export * from "types/primitives/EVMAccountAddress";
 export * from "types/primitives/EVMContractAddress";
 export * from "types/primitives/HexString";
