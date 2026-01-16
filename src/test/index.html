@@ -39,6 +39,19 @@
         background: #f9f9f9;
         resize: vertical;
       }
+      .x402-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 10px 0;
+      }
+      #x402UrlInput {
+        flex: 1;
+        padding: 10px 12px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
       .indicators {
         display: flex;
         gap: 20px;
@@ -130,6 +143,11 @@
     <div>
       <button id="getSignatureBtn" disabled>Get ERC3009 Signature</button>
       <button id="toggleFrameBtn" disabled>Toggle Frame</button>
+    </div>
+
+    <div class="x402-row">
+      <input id="x402UrlInput" type="url" placeholder="x402 URL (https://...)" />
+      <button id="x402RequestBtn" disabled>Request</button>
     </div>
 
     <div id="Wallet"></div>

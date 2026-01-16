@@ -35,6 +35,7 @@ export interface ISignInParams {
 
 
 export interface IGetERC3009SignatureParams {
+  recipient: string;
   destinationAddress: EVMAccountAddress;
   amount: BigNumberString;
   validUntil: UnixTimestamp;
@@ -42,6 +43,7 @@ export interface IGetERC3009SignatureParams {
 }
 
 export interface IGetPermitSignatureParams {
+  recipient: string;
   destinationAddress: EVMAccountAddress;
   amount: BigNumberString;
   nonce: BigNumberString;

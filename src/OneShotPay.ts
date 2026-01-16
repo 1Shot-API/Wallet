@@ -1,4 +1,4 @@
-import { errAsync, ResultAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import Postmate from "postmate";
 
 import {
@@ -16,7 +16,7 @@ import {
   ISignedERC3009TransferWithAuthorization,
   ISignedPermitTransfer,
 } from "types/domain";
-import { BaseError, ProxyError } from "types/errors";
+import { AjaxError, BaseError, ProxyError } from "types/errors";
 import {
   BigNumberString,
   EVMAccountAddress,
@@ -25,8 +25,19 @@ import {
   Username,
 } from "types/primitives";
 import { ELocale } from "types/enum";
+import { IOneShotPay } from "IOneShotPay";
+import {
+  X402PaymentPayloadV2ExactEvm,
+  X402PaymentRequirements,
+  x402Base64EncodeUtf8,
+  x402GetChainIdFromNetwork,
+  x402IsUsdcOnBase,
+  x402NormalizeAcceptedPayments,
+  x402ParseJsonOrBase64Json,
+  x402ResolveRequestUrl,
+} from "utils/x402Utils";
 
-export class OneShotPay {
+export class OneShotPay implements IOneShotPay {
   protected child: Postmate.ParentAPI | null = null;
   protected rpcNonce = 0;
   protected rpcCallbacks = new Map<
@@ -174,6 +185,7 @@ export class OneShotPay {
   }
 
   public getERC3009Signature(
+    recipient: string,
     destinationAddress: EVMAccountAddress,
     amount: BigNumberString,
     validUntil: UnixTimestamp,
@@ -185,6 +197,7 @@ export class OneShotPay {
     >(
       "getERC3009Signature",
       {
+        recipient,
         destinationAddress,
         amount,
         validUntil,
@@ -195,6 +208,7 @@ export class OneShotPay {
   }
 
   public getPermitSignature(
+    recipient: string,
     destinationAddress: EVMAccountAddress,
     amount: BigNumberString,
     nonce: BigNumberString,
@@ -203,6 +217,7 @@ export class OneShotPay {
     return this.rpcCall<ISignedPermitTransfer, IGetPermitSignatureParams>(
       "getPermitSignature",
       {
+        recipient,
         destinationAddress,
         amount,
         nonce,
@@ -304,6 +319,186 @@ export class OneShotPay {
    */
   public getVisible(): boolean {
     return this.isVisible;
+  }
+
+  /**
+   * x402-enabled fetch wrapper.
+   *
+   * Performs a normal fetch first. If the response is HTTP 402 and includes x402 payment requirements,
+   * this method will ONLY support the `exact` scheme with USDC on Base mainnet (eip155:8453).
+   *
+   * If supported, it requests an EIP-3009 (ERC-3009) signature from the embedded wallet and retries
+   * the request with a `PAYMENT-SIGNATURE` header containing base64(JSON(PaymentPayload)).
+   */
+  public x402Fetch(
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): ResultAsync<Response, AjaxError | ProxyError> {
+    const doFetch = (headersOverride?: Headers): ResultAsync<Response, AjaxError> => {
+      const nextInit: RequestInit = { ...(init ?? {}) };
+
+      const headers = new Headers(init?.headers ?? undefined);
+      if (headersOverride) {
+        headersOverride.forEach((value, key) => headers.set(key, value));
+      }
+      nextInit.headers = headers;
+
+      return ResultAsync.fromPromise(fetch(input, nextInit), (e) => AjaxError.fromError(e as Error));
+    };
+
+    return doFetch().andThen(
+      (initialResponse) => {
+        if (initialResponse.status !== 402) {
+          return okAsync(initialResponse);
+        }
+
+        const paymentRequiredHeader =
+          initialResponse.headers.get("payment-required") ??
+          initialResponse.headers.get("PAYMENT-REQUIRED");
+
+        if (!paymentRequiredHeader) {
+          return errAsync(
+            new AjaxError(
+              new Error(
+                "Received HTTP 402 but missing PAYMENT-REQUIRED header for x402.",
+              ),
+            ),
+          );
+        }
+
+        let parsed: unknown;
+        try {
+          parsed = x402ParseJsonOrBase64Json(paymentRequiredHeader);
+        } catch (e) {
+          return errAsync(
+            new AjaxError(
+              new Error(
+                `Failed to parse PAYMENT-REQUIRED header for x402: ${(e as Error).message}`,
+              ),
+            ),
+          );
+        }
+
+        const req = parsed as X402PaymentRequirements;
+        const accepted = x402NormalizeAcceptedPayments(req);
+        const exact = accepted.find((p) => (p.scheme ?? "").toLowerCase() === "exact");
+
+        if (!exact) {
+          return errAsync(
+            new AjaxError(
+              new Error("x402 endpoint does not offer the Exact scheme (required)."),
+            ),
+          );
+        }
+
+        const network = exact.network;
+        const amount = exact.amount;
+        const asset = exact.asset;
+        const payTo = exact.payTo;
+
+        if (!network || !amount || !asset || !payTo) {
+          return errAsync(
+            new AjaxError(
+              new Error(
+                "x402 PAYMENT-REQUIRED header missing one of: network, amount, asset, payTo.",
+              ),
+            ),
+          );
+        }
+
+        const chainId = x402GetChainIdFromNetwork(network);
+        if (chainId == null) {
+          return errAsync(
+            new AjaxError(
+              new Error(
+                `Unsupported x402 network "${network}". Only eip155:<chainId> is supported.`,
+              ),
+            ),
+          );
+        }
+
+        if (!x402IsUsdcOnBase(chainId, asset)) {
+          return errAsync(
+            new AjaxError(
+              new Error(
+                `Unsupported x402 payment. Only USDC on Base is supported (got asset=${asset}, network=${network}).`,
+              ),
+            ),
+          );
+        }
+
+        // Enforce asset transfer method (Exact + EIP-3009)
+        const extra = (exact.extra ?? {}) as Record<string, unknown>;
+        const method =
+          (extra["assetTransferMethod"] as string | undefined) ??
+          ((extra as Record<string, unknown>)["asset_transfer_method"] as
+            | string
+            | undefined);
+        if (method && method.toLowerCase() !== "eip3009") {
+          return errAsync(
+            new AjaxError(
+              new Error(
+                `Unsupported x402 assetTransferMethod "${method}". Only "eip3009" is supported.`,
+              ),
+            ),
+          );
+        }
+
+        // Signature validity window
+        const maxTimeoutSeconds =
+          typeof exact.maxTimeoutSeconds === "number" ? exact.maxTimeoutSeconds : 60;
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const validAfter = UnixTimestamp(nowSeconds);
+        const validUntil = UnixTimestamp(nowSeconds + maxTimeoutSeconds);
+
+        // Use request URL as "recipient" string for wallet UX
+        const requestUrl = x402ResolveRequestUrl(input);
+
+        // Generate the ERC-3009 signature via the embedded wallet
+        return this.getERC3009Signature(
+          requestUrl,
+          payTo,
+          amount,
+          validUntil,
+          validAfter,
+        ).andThen((signed: ISignedERC3009TransferWithAuthorization) => {
+          const paymentPayload: X402PaymentPayloadV2ExactEvm = {
+            x402Version: typeof req.x402Version === "number" ? req.x402Version : 2,
+            resource: {
+              url: (req.resource?.url ?? requestUrl) as unknown as string,
+              ...(req.resource?.description ? { description: req.resource.description } : {}),
+              ...(req.resource?.mimeType ? { mimeType: req.resource.mimeType } : {}),
+            },
+            accepted: {
+              scheme: "exact",
+              network,
+              amount,
+              asset,
+              payTo,
+              maxTimeoutSeconds,
+              ...(Object.keys(extra).length ? { extra } : {}),
+            },
+            payload: {
+              signature: signed.signature,
+              authorization: {
+                from: signed.from,
+                to: signed.to,
+                value: signed.value,
+                validAfter: signed.validAfter,
+                validBefore: signed.validBefore,
+                nonce: signed.nonce,
+              },
+            },
+          };
+
+          const encoded = x402Base64EncodeUtf8(JSON.stringify(paymentPayload));
+          const headersOverride = new Headers();
+          headersOverride.set("PAYMENT-SIGNATURE", encoded);
+
+          return doFetch(headersOverride);
+        });
+      },
+    );
   }
 
   protected rpcCall<TReturn, TParams>(
@@ -601,5 +796,4 @@ export class OneShotPay {
       },
     };
   }
-
 }
